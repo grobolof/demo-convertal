@@ -2,8 +2,55 @@
 
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
+@source '../**/*.js';
+@source '../**/*.blade.php';
 
 @theme {
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+    --font-sans: 'Manrope', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
+    --color-brand: #1a8cff;
+    --color-brand-dark: #0874e0;
+    --color-ink: #1b2838;
+    --color-muted: #66758a;
+    --color-line: #e4ebf3;
+    --color-canvas: #f4f7fb;
+    --color-good: #14944c;
+    --color-good-dark: #0e7a3e;
+}
+
+.format-chip {
+    border: 1px solid var(--color-line);
+    border-radius: 999px;
+    background: #fff;
+    padding: 0.4rem 0.85rem;
+    font-size: 0.8125rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--color-ink);
+}
+
+.format-chip[data-state='source'] {
+    border-color: var(--color-brand);
+    color: var(--color-brand);
+}
+
+.format-chip[data-state='target'] {
+    border-color: var(--color-brand);
+    background: var(--color-brand);
+    color: #fff;
+}
+
+@media (prefers-color-scheme: dark) {
+    .format-chip {
+        border-color: #334155;
+        background: #0f172a;
+        color: #f8fafc;
+    }
+
+    .format-chip[data-state='source'] {
+        border-color: var(--color-brand);
+        color: #7cc0ff;
+        background: #0f172a;
+    }
 }

@@ -21,7 +21,7 @@
                     <button
                         type="button"
                         data-browse
-                        class="inline-flex h-14 items-center justify-center rounded-2xl bg-brand px-8 text-lg font-bold text-white shadow-lg shadow-brand/30 hover:bg-brand-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                        class="inline-flex h-14 cursor-pointer items-center justify-center rounded-2xl bg-brand px-8 text-lg font-bold text-white shadow-lg shadow-brand/30 hover:bg-brand-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
                     >
                         Выберите файлы
                     </button>
@@ -37,7 +37,7 @@
                     <button
                         type="button"
                         data-open-picker="from"
-                        class="flex min-w-40 flex-col items-center rounded-3xl border border-line bg-white px-8 py-5 shadow-sm hover:border-brand dark:border-slate-700 dark:bg-slate-950"
+                        class="flex min-w-40 cursor-pointer flex-col items-center rounded-3xl border border-line bg-white px-8 py-5 shadow-sm hover:border-brand dark:border-slate-700 dark:bg-slate-950"
                     >
                         <span data-from-label data-bind="from-label" class="text-4xl font-extrabold tracking-wide uppercase" style="color: {{ $page['source']['color'] }}">{{ $page['from_label'] }}</span>
                     </button>
@@ -45,7 +45,7 @@
                     <button
                         type="button"
                         data-open-picker="to"
-                        class="flex min-w-40 flex-col items-center rounded-3xl border border-line bg-white px-8 py-5 shadow-sm hover:border-brand dark:border-slate-700 dark:bg-slate-950"
+                        class="flex min-w-40 cursor-pointer flex-col items-center rounded-3xl border border-line bg-white px-8 py-5 shadow-sm hover:border-brand dark:border-slate-700 dark:bg-slate-950"
                     >
                         <span data-to-label data-bind="to-label" class="text-4xl font-extrabold tracking-wide uppercase" style="color: {{ $page['target']['color'] }}">{{ $page['to_label'] }}</span>
                     </button>

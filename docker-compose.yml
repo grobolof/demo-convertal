@@ -1,10 +1,7 @@
 services:
 
   application:
-    build:
-      context: ./docker
-      dockerfile: Dockerfile
-    image: demo-convertool-application
+    image: ghcr.io/grobolof/laravel:php-8.5-fpm-trixie
     env_file: .env
     working_dir: ${APP_PATH}
     environment:

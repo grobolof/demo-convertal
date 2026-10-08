@@ -6,15 +6,7 @@
 @section('content')
     <div data-converter data-from="{{ $page['from'] }}" data-to="{{ $page['to'] }}">
         <div class="mx-auto max-w-6xl px-4 pb-20 pt-8 sm:pt-12">
-            <nav class="flex flex-wrap items-center gap-2 text-sm text-muted">
-                <a href="{{ route('home') }}" class="hover:text-brand">Главная</a>
-                <span aria-hidden="true">/</span>
-                <span>Конвертер <span data-bind="group">{{ $page['group_label'] }}</span></span>
-                <span aria-hidden="true">/</span>
-                <span class="font-semibold text-ink dark:text-white" data-bind="crumb">{{ $page['crumb'] }}</span>
-            </nav>
-
-            <div class="mx-auto mt-6 max-w-3xl text-center">
+            <div class="mx-auto max-w-3xl text-center">
                 <h1 class="text-4xl font-extrabold tracking-tight sm:text-5xl" data-bind="heading">{{ $page['heading'] }}</h1>
                 <p class="mt-4 text-lg leading-7 text-muted" data-bind="subtitle">{{ $page['subtitle'] }}</p>
             </div>
@@ -35,32 +27,11 @@
                     </button>
                     <p class="mt-4 text-sm text-muted">Перетащите файлы сюда. 100 МБ — максимальный размер файла.</p>
                     <noscript>
-                        <p class="mt-3 text-sm text-muted">Загрузка файлов работает с включённым JavaScript. Ссылки на форматы открываются и без него.</p>
+                        <p class="mt-3 text-sm text-muted">Загрузка файлов работает с включённым JavaScript.</p>
                     </noscript>
                 </div>
 
                 <div data-files class="hidden space-y-3"></div>
-
-                <div class="mt-8 grid gap-4 sm:grid-cols-2">
-                    @foreach (['document' => 'Документы', 'image' => 'Изображения'] as $groupKey => $groupLabel)
-                        <div>
-                            <p class="text-xs font-bold tracking-[0.14em] text-muted uppercase">{{ $groupLabel }}</p>
-                            <div class="mt-2 flex flex-wrap gap-2">
-                                @foreach ($catalog['formats'] as $key => $format)
-                                    @if ($format['group'] === $groupKey)
-                                        <a
-                                            href="{{ route('converter.show', ['from' => $key, 'to' => $catalog['pairs'][$key][0]]) }}"
-                                            data-format="{{ $key }}"
-                                            @if ($key === $page['to']) data-state="target"
-                                            @elseif ($key === $page['from']) data-state="source" @endif
-                                            class="format-chip"
-                                        >{{ $format['label'] }}</a>
-                                    @endif
-                                @endforeach
-                            </div>
-                        </div>
-                    @endforeach
-                </div>
 
                 <div class="relative mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row sm:gap-6">
                     <button
@@ -68,17 +39,15 @@
                         data-open-picker="from"
                         class="flex min-w-40 flex-col items-center rounded-3xl border border-line bg-white px-8 py-5 shadow-sm hover:border-brand dark:border-slate-700 dark:bg-slate-950"
                     >
-                        <span class="text-[11px] font-bold tracking-[0.16em] text-muted uppercase">Из</span>
-                        <span data-from-label data-bind="from-label" class="mt-1 text-4xl font-extrabold tracking-wide uppercase" style="color: {{ $page['source']['color'] }}">{{ $page['from_label'] }}</span>
+                        <span data-from-label data-bind="from-label" class="text-4xl font-extrabold tracking-wide uppercase" style="color: {{ $page['source']['color'] }}">{{ $page['from_label'] }}</span>
                     </button>
-                    <span class="grid size-12 place-items-center rounded-full bg-canvas text-sm font-extrabold text-muted dark:bg-slate-800">в</span>
+                    <span class="text-5xl font-extrabold leading-none text-ink dark:text-white" aria-hidden="true">В</span>
                     <button
                         type="button"
                         data-open-picker="to"
                         class="flex min-w-40 flex-col items-center rounded-3xl border border-line bg-white px-8 py-5 shadow-sm hover:border-brand dark:border-slate-700 dark:bg-slate-950"
                     >
-                        <span class="text-[11px] font-bold tracking-[0.16em] text-muted uppercase">В</span>
-                        <span data-to-label data-bind="to-label" class="mt-1 text-4xl font-extrabold tracking-wide uppercase" style="color: {{ $page['target']['color'] }}">{{ $page['to_label'] }}</span>
+                        <span data-to-label data-bind="to-label" class="text-4xl font-extrabold tracking-wide uppercase" style="color: {{ $page['target']['color'] }}">{{ $page['to_label'] }}</span>
                     </button>
                     <div
                         data-picker

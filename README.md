@@ -2,7 +2,6 @@
 
 [![PHP 8.5](https://img.shields.io/badge/php-8.5-%23777BB4?style=for-the-badge&logo=php&logoColor=black)](https://www.php.net/releases/8.5/ru.php)
 [![Laravel 13](https://img.shields.io/badge/laravel-13-%23FF2D20?style=for-the-badge&logo=laravel&logoColor=white)](https://laravel.com/)
-[![MariaDB](https://img.shields.io/badge/mariadb-%23003545?style=for-the-badge&logo=mariadb&logoColor=white)](https://mariadb.org/)
 [![Tailwind CSS 4](https://img.shields.io/badge/tailwindcss-4-%2338BDF8?style=for-the-badge&logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
 
 👉 <a href="http://convertal.ci235490.tw1.ru/" target="_blank" rel="noopener noreferrer">Демо-версия</a>
@@ -230,22 +229,18 @@ JPG и JPEG — один и тот же вид сжатия. Разница ст
 
 ```bash
 make up
-make migrations-up
 docker compose exec application npm install
 docker compose exec application npm run build
 ```
 
-`make up` поднимает контейнеры. `make migrations-up` создаёт таблицы сессий и кэша: без них страница не держит сессию, а ссылка на скачивание не сохраняется. Команды `npm` собирают стили и скрипт страницы.
-
-Поднимаются два сервиса:
+`make up` поднимает контейнер приложения. База данных проекту не нужна: сессия и ссылка на скачивание живут в файлах. Команды `npm` собирают стили и скрипт страницы.
 
 | Сервис | Зачем | Порт на компьютере |
 | --- | --- | --- |
 | **application** | Laravel на PHP 8.5. Корень репозитория смонтирован в контейнер. Для документов внутри должен находиться LibreOffice (`soffice`). | **80** |
-| **database** | MariaDB. База, пользователь и пароль — из `.env`. | **3306** |
 
-Остановить контейнеры, не трогая данные: `make stop`.  
-`make down` удаляет контейнеры **и тома**, включая базу.
+Остановить контейнер: `make stop`.  
+`make down` удаляет контейнер.
 
 Пока контейнеры запущены:
 
@@ -269,7 +264,10 @@ make test
 | **`APP_URL`** | Адрес, по которому открывают сайт. |
 | **`APP_KEY`** | Ключ сессий и cookie. Пустое значение заполняют командой `make key-generate`. |
 | **`APP_LOCALE`** | Язык приложения, для этого проекта `ru`. |
-| **`DB_CONNECTION`**, **`DB_HOST`**, **`DB_PORT`**, **`DB_DATABASE`**, **`DB_USERNAME`**, **`DB_PASSWORD`**, **`DB_ROOT_PASSWORD`** | Доступ к MariaDB. Хост внутри сети Docker — `database`, порт `3306`. |
+| **`SESSION_DRIVER`** | Где хранить сессию. Для этого проекта — `file`, без базы. |
+| **`CACHE_STORE`** | Где хранить ссылку на скачивание. Для этого проекта — `file`. |
+| **`QUEUE_CONNECTION`** | Очередь задач. Для этого проекта — `sync`: задачи выполняются сразу, без базы. |
+| **`DB_CONNECTION`**, **`DB_HOST`**, **`DB_PORT`**, **`DB_DATABASE`**, **`DB_USERNAME`**, **`DB_PASSWORD`** | Нужны только образу контейнера: без них он не стартует. Приложение эти значения не использует. В примере стоит `sqlite` и база `:memory:`, отдельный сервер СУБД не поднимается. |
 | **`LARAVEL_CRON_ENABLED`** | **`1`** — планировщик Laravel запускается раз в минуту. **`0`** — не запускается. На конвертацию это не влияет: файлы старше двух часов удаляются при следующей загрузке. |
 | **`LIBREOFFICE_BINARY`** | Имя или путь программы LibreOffice. Если переменной нет, ищется `soffice`, затем `libreoffice`. |
 

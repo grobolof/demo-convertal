@@ -5,8 +5,10 @@ namespace Tests\Feature;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Testing\TestResponse;
+use Mpdf\Mpdf;
+use Mpdf\Output\Destination;
 use PHPUnit\Framework\Attributes\DataProvider;
-use Symfony\Component\Process\Process;
+use Smalot\PdfParser\Parser;
 use Tests\TestCase;
 use ZipArchive;
 
@@ -49,7 +51,7 @@ class ConversionTest extends TestCase
         $response = $this->postConversion([
             'file' => UploadedFile::fake()->image('photo.png'),
             'from' => 'pdf',
-            'to' => 'doc',
+            'to' => 'docx',
         ]);
 
         $response->assertUnprocessable();
@@ -65,7 +67,7 @@ class ConversionTest extends TestCase
         $response = $this->postConversion([
             'file' => UploadedFile::fake()->create('notes.pdf', 12, 'application/pdf'),
             'from' => 'pdf',
-            'to' => 'doc',
+            'to' => 'docx',
         ]);
 
         $response->assertUnprocessable();
@@ -126,10 +128,6 @@ class ConversionTest extends TestCase
     #[DataProvider('documentConversions')]
     public function test_document_upload_returns_a_converted_download(string $from, string $to, string $signature): void
     {
-        if (! is_executable('/usr/bin/soffice')) {
-            $this->markTestSkipped('LibreOffice is not installed.');
-        }
-
         Storage::fake('local');
 
         $response = $this->postConversion([
@@ -144,7 +142,24 @@ class ConversionTest extends TestCase
         $download = $this->get($response->json('url'));
         $download->assertOk();
         $download->assertDownload('note.'.$to);
-        $this->assertStringStartsWith($signature, $download->streamedContent());
+
+        $content = $download->streamedContent();
+        $this->assertStringStartsWith($signature, $content);
+        $this->assertStringContainsString('Привет', $this->textOf($content, $to));
+    }
+
+    public function test_pdf_without_text_returns_422(): void
+    {
+        Storage::fake('local');
+
+        $response = $this->postConversion([
+            'file' => $this->pdf(''),
+            'from' => 'pdf',
+            'to' => 'docx',
+        ]);
+
+        $response->assertUnprocessable();
+        $response->assertJsonPath('message', 'В PDF не найден текст. Сканы без текстового слоя не переводятся.');
     }
 
     /**
@@ -168,8 +183,6 @@ class ConversionTest extends TestCase
         return [
             'docx to pdf' => ['docx', 'pdf', '%PDF'],
             'pdf to docx' => ['pdf', 'docx', "PK\x03\x04"],
-            'pdf to doc' => ['pdf', 'doc', "\xD0\xCF\x11\xE0"],
-            'doc to pdf' => ['doc', 'pdf', '%PDF'],
         ];
     }
 
@@ -187,26 +200,47 @@ class ConversionTest extends TestCase
 
     private function document(string $extension): UploadedFile
     {
-        $docx = tempnam(sys_get_temp_dir(), 'docx');
-        $docxPath = $docx.'.docx';
-        rename($docx, $docxPath);
-        $this->writeDocx($docxPath, 'Hello Convertal');
-
         if ($extension === 'docx') {
-            return new UploadedFile($docxPath, 'note.docx', null, null, true);
+            $path = tempnam(sys_get_temp_dir(), 'docx').'.docx';
+            $this->writeDocx($path, 'Привет, Convertal');
+
+            return new UploadedFile($path, 'note.docx', null, null, true);
         }
 
+        return $this->pdf('Привет, Convertal');
+    }
+
+    private function pdf(string $text): UploadedFile
+    {
+        $path = tempnam(sys_get_temp_dir(), 'pdf').'.pdf';
+        $work = sys_get_temp_dir().'/convertal-fixture-'.bin2hex(random_bytes(4));
+        mkdir($work);
+        $pdf = new Mpdf([
+            'mode' => 'utf-8',
+            'format' => 'A4',
+            'tempDir' => $work,
+            'default_font' => 'dejavusans',
+        ]);
+        $pdf->WriteHTML('<p>'.htmlspecialchars($text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8').'</p>');
+        $pdf->Output($path, Destination::FILE);
+
+        return new UploadedFile($path, 'note.pdf', null, null, true);
+    }
+
+    private function textOf(string $content, string $extension): string
+    {
         if ($extension === 'pdf') {
-            $pdfPath = tempnam(sys_get_temp_dir(), 'pdf').'.pdf';
-            file_put_contents($pdfPath, $this->minimalPdf());
-
-            return new UploadedFile($pdfPath, 'note.pdf', null, null, true);
+            return (new Parser)->parseContent($content)->getText();
         }
 
-        $docPath = tempnam(sys_get_temp_dir(), 'doc').'.doc';
-        $this->runSoffice($docxPath, 'doc:MS Word 97', $docPath);
+        $path = tempnam(sys_get_temp_dir(), 'docx');
+        file_put_contents($path, $content);
+        $zip = new ZipArchive;
+        $zip->open($path);
+        $xml = $zip->getFromName('word/document.xml');
+        $zip->close();
 
-        return new UploadedFile($docPath, 'note.doc', null, null, true);
+        return is_string($xml) ? $xml : '';
     }
 
     private function writeDocx(string $path, string $text): void
@@ -234,66 +268,5 @@ XML);
 </w:document>
 XML);
         $zip->close();
-    }
-
-    private function minimalPdf(): string
-    {
-        $objects = [
-            '1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj',
-            '2 0 obj<</Type/Pages/Count 1/Kids[3 0 R]>>endobj',
-            '3 0 obj<</Type/Page/MediaBox[0 0 300 144]/Parent 2 0 R/Contents 4 0 R/Resources<</Font<</F1 5 0 R>>>>>>endobj',
-        ];
-        $stream = 'BT /F1 18 Tf 36 80 Td (Hello Convertal) Tj ET';
-        $objects[] = '4 0 obj<</Length '.strlen($stream).">>stream\n".$stream."\nendstream\nendobj";
-        $objects[] = '5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj';
-
-        $pdf = "%PDF-1.4\n";
-        $offsets = [];
-
-        foreach ($objects as $object) {
-            $offsets[] = strlen($pdf);
-            $pdf .= $object."\n";
-        }
-
-        $xref = strlen($pdf);
-        $pdf .= 'xref'."\n".'0 '.(count($objects) + 1)."\n";
-        $pdf .= "0000000000 65535 f \n";
-
-        foreach ($offsets as $offset) {
-            $pdf .= sprintf("%010d 00000 n \n", $offset);
-        }
-
-        $pdf .= 'trailer<</Size '.(count($objects) + 1)."/Root 1 0 R>>\nstartxref\n{$xref}\n%%EOF";
-
-        return $pdf;
-    }
-
-    private function runSoffice(string $input, string $filter, string $output): void
-    {
-        $work = sys_get_temp_dir().'/convertal-fixture-'.bin2hex(random_bytes(4));
-        mkdir($work, 0755, true);
-        $copy = $work.'/input.docx';
-        copy($input, $copy);
-
-        $process = new Process([
-            '/usr/bin/soffice',
-            '-env:UserInstallation=file://'.$work.'/profile',
-            '--headless',
-            '--norestore',
-            '--convert-to',
-            $filter,
-            '--outdir',
-            $work,
-            $copy,
-        ], $work, ['HOME' => $work, 'PATH' => getenv('PATH') ?: '/usr/bin'], null, 120);
-        mkdir($work.'/profile', 0755, true);
-        $process->run();
-        $produced = $work.'/input.doc';
-
-        if (! is_file($produced)) {
-            $this->fail('Could not build a DOC fixture: '.$process->getErrorOutput().$process->getOutput());
-        }
-
-        copy($produced, $output);
     }
 }

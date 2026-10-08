@@ -27,7 +27,6 @@ class UploadInspector
             'pdf' => $this->startsWith($path, '%PDF') ? null : 'Содержимое файла не похоже на PDF.',
             'png' => $this->startsWith($path, "\x89PNG") ? null : 'Содержимое файла не похоже на PNG.',
             'jpg', 'jpeg' => $this->startsWith($path, "\xFF\xD8\xFF") ? null : 'Содержимое файла не похоже на JPEG.',
-            'doc' => $this->startsWith($path, "\xD0\xCF\x11\xE0") ? null : 'Содержимое файла не похоже на документ DOC.',
             'docx' => $this->isDocx($path) ? null : 'Содержимое файла не похоже на документ DOCX.',
             default => 'Формат не поддерживается.',
         };

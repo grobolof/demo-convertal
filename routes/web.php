@@ -18,7 +18,7 @@ Route::get('/conversions/{token}', [ConversionController::class, 'download'])
 
 Route::get('/{from}-{to}', [ConverterController::class, 'show'])
     ->where([
-        'from' => 'pdf|doc|docx|jpg|jpeg|png',
-        'to' => 'pdf|doc|docx|jpg|jpeg|png',
+        'from' => 'pdf|docx|jpg|jpeg|png',
+        'to' => 'pdf|docx|jpg|jpeg|png',
     ])
     ->name('converter.show');

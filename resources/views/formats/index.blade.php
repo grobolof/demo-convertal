@@ -1,13 +1,13 @@
 @extends('layouts.app')
 
 @section('title', 'Форматы — Convertal')
-@section('description', 'Все конвертации Convertal: PDF, DOC, DOCX, JPG, JPEG и PNG.')
+@section('description', 'Все конвертации Convertal: PDF, DOCX, JPG, JPEG и PNG.')
 
 @section('content')
     <div class="mx-auto max-w-6xl px-4 py-12">
         <p class="text-sm font-semibold text-brand">Форматы</p>
         <h1 class="mt-2 text-4xl font-extrabold tracking-tight">Что можно конвертировать</h1>
-        <p class="mt-4 max-w-2xl text-lg leading-7 text-muted">Документы переводятся через LibreOffice, изображения — без пережатия лишний раз. Выберите пару и загрузите файл.</p>
+        <p class="mt-4 max-w-2xl text-lg leading-7 text-muted">Документы собираются на сервере: текст PDF переносится в DOCX, DOCX — в PDF. Изображения переводятся без лишнего пережатия. Выберите пару и загрузите файл.</p>
 
         <div class="mt-10 grid gap-8">
             @foreach ($groups as $group)

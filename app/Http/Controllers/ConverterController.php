@@ -12,7 +12,7 @@ class ConverterController extends Controller
 
     public function index(): View
     {
-        return $this->show('pdf', 'doc');
+        return $this->show('pdf', 'docx');
     }
 
     public function show(string $from, string $to): View

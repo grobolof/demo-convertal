@@ -4,7 +4,7 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="csrf-token" content="{{ csrf_token() }}">
-        <meta name="description" content="@yield('description', 'Convertal конвертирует PDF, DOC, DOCX, JPG и PNG онлайн.')">
+        <meta name="description" content="@yield('description', 'Convertal конвертирует PDF, DOCX, JPG и PNG онлайн.')">
         <title>@yield('title', 'Convertal')</title>
         @fonts
         @vite(['resources/css/app.css', 'resources/js/app.js'])

@@ -5,142 +5,133 @@ namespace App\Support;
 use App\Exceptions\ConversionException;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
-use Symfony\Component\Process\ExecutableFinder;
-use Symfony\Component\Process\Process;
+use Mpdf\Mpdf;
+use Mpdf\Output\Destination;
+use PhpOffice\PhpWord\IOFactory;
+use PhpOffice\PhpWord\PhpWord;
+use Smalot\PdfParser\Config as PdfConfig;
+use Smalot\PdfParser\Parser as PdfParser;
+use ZipArchive;
 
 class DocumentConverter
 {
+    private const int PDF_DECODE_LIMIT = 64 * 1024 * 1024;
+
     public function convert(string $sourcePath, string $outputPath, string $from, string $to): void
     {
-        $binary = $this->binary();
+        try {
+            match ($from.'-'.$to) {
+                'docx-pdf' => $this->docxToPdf($sourcePath, $outputPath),
+                'pdf-docx' => $this->pdfToDocx($sourcePath, $outputPath),
+                default => throw new ConversionException('Формат документа не поддерживается.'),
+            };
+        } catch (ConversionException $exception) {
+            throw $exception;
+        } catch (\Throwable $exception) {
+            Log::warning('Document conversion failed.', [
+                'from' => $from,
+                'to' => $to,
+                'exception' => $exception::class,
+                'message' => $exception->getMessage(),
+            ]);
+
+            throw new ConversionException('Не удалось конвертировать документ. Проверьте, что файл не повреждён.');
+        }
+    }
+
+    private function docxToPdf(string $sourcePath, string $outputPath): void
+    {
         $work = sys_get_temp_dir().'/convertal-'.bin2hex(random_bytes(8));
-        $profile = $work.'/profile';
-        File::makeDirectory($profile, 0755, true);
+        File::makeDirectory($work);
 
         try {
-            $input = $work.'/input.'.$from;
-
-            if (! copy($sourcePath, $input)) {
-                throw new ConversionException('Не удалось подготовить документ к конвертации.');
-            }
-
-            $command = [
-                $binary,
-                '-env:UserInstallation=file://'.$profile,
-                '--headless',
-                '--nologo',
-                '--nofirststartwizard',
-                '--norestore',
-                '--nolockcheck',
-            ];
-
-            if ($from === 'pdf') {
-                $command[] = '--infilter=writer_pdf_import';
-            }
-
-            $command[] = '--convert-to';
-            $command[] = $this->filter($to);
-            $command[] = '--outdir';
-            $command[] = $work;
-            $command[] = $input;
-
-            $process = new Process($command, $work, $this->environment($work), null, 120);
-            $process->run();
-
-            $produced = $this->producedFile($work, $input, $to);
-
-            if (! $process->isSuccessful() || $produced === null) {
-                Log::warning('LibreOffice conversion failed.', [
-                    'from' => $from,
-                    'to' => $to,
-                    'exit' => $process->getExitCode(),
-                    'output' => trim($process->getErrorOutput()."\n".$process->getOutput()),
-                ]);
-
-                throw new ConversionException('Не удалось конвертировать документ. Проверьте, что файл не повреждён.');
-            }
-
-            if (! copy($produced, $outputPath)) {
-                throw new ConversionException('Не удалось сохранить результат конвертации.');
-            }
+            $pdf = new Mpdf([
+                'mode' => 'utf-8',
+                'format' => 'A4',
+                'tempDir' => $work,
+                'default_font' => 'dejavusans',
+                'whitelistStreamWrappers' => ['file'],
+            ]);
+            $pdf->WriteHTML($this->htmlForPdf($sourcePath));
+            $pdf->Output($outputPath, Destination::FILE);
         } finally {
             File::deleteDirectory($work);
         }
+
+        $header = file_get_contents($outputPath, false, null, 0, 5);
+
+        if ($header === false || ! str_starts_with($header, '%PDF')) {
+            throw new ConversionException('Не удалось конвертировать документ. Проверьте, что файл не повреждён.');
+        }
     }
 
-    private function filter(string $to): string
+    private function htmlForPdf(string $sourcePath): string
     {
-        return match ($to) {
-            'pdf' => 'pdf:writer_pdf_Export',
-            'docx' => 'docx:MS Word 2007 XML',
-            'doc' => 'doc:MS Word 97',
-            default => throw new ConversionException('Формат документа не поддерживается.'),
-        };
+        $html = IOFactory::createWriter(IOFactory::load($sourcePath), 'HTML')->getContent();
+        $html = preg_replace('/@page\s+[^{]+\{[^}]*\}/', '', $html) ?? $html;
+        $html = preg_replace('/\sstyle=([\'"])page:[^\'"]*\1/i', '', $html) ?? $html;
+        $html = preg_replace('/font-family\s*:\s*(?:\'[^\']*\'|"[^"]*"|[^;}]+)/i', 'font-family: dejavusans', $html) ?? $html;
+
+        if (trim($html) === '') {
+            throw new ConversionException('Не удалось конвертировать документ. Проверьте, что файл не повреждён.');
+        }
+
+        return $html;
     }
 
-    private function producedFile(string $work, string $input, string $to): ?string
+    private function pdfToDocx(string $sourcePath, string $outputPath): void
     {
-        $expected = $work.'/input.'.$to;
+        $phpWord = new PhpWord;
+        $phpWord->setDefaultFontName('Times New Roman');
+        $phpWord->setDefaultFontSize(12);
+        $section = $phpWord->addSection();
 
-        if (is_file($expected)) {
-            return $expected;
+        foreach ($this->pdfParagraphs($sourcePath) as $paragraph) {
+            $section->addText($paragraph);
         }
 
-        $candidates = glob($work.'/input.*') ?: [];
+        IOFactory::createWriter($phpWord, 'Word2007')->save($outputPath);
 
-        foreach ($candidates as $candidate) {
-            if ($candidate !== $input && is_file($candidate)) {
-                return $candidate;
-            }
+        $zip = new ZipArchive;
+        $opened = $zip->open($outputPath);
+        $hasDocument = $opened === true && $zip->locateName('word/document.xml') !== false;
+
+        if ($opened === true) {
+            $zip->close();
         }
 
-        return null;
-    }
-
-    private function binary(): string
-    {
-        $configured = config('conversions.libreoffice_binary');
-        $names = [];
-
-        if (is_string($configured) && $configured !== '') {
-            if (str_contains($configured, '/') && is_executable($configured)) {
-                return $configured;
-            }
-
-            $names[] = $configured;
+        if (! $hasDocument) {
+            throw new ConversionException('Не удалось конвертировать документ. Проверьте, что файл не повреждён.');
         }
-
-        $names[] = 'soffice';
-        $names[] = 'libreoffice';
-        $finder = new ExecutableFinder;
-
-        foreach (array_unique($names) as $name) {
-            $found = $finder->find($name, null, ['/usr/bin', '/usr/lib/libreoffice/program']);
-
-            if (is_string($found)) {
-                return $found;
-            }
-        }
-
-        throw new ConversionException('Конвертация документов сейчас недоступна.');
     }
 
     /**
-     * LibreOffice locks a shared profile, so each conversion gets its own home directory.
-     *
-     * @return array<string, string>
+     * @return list<string>
      */
-    private function environment(string $home): array
+    private function pdfParagraphs(string $sourcePath): array
     {
-        $path = getenv('PATH');
+        $config = new PdfConfig;
+        $config->setDecodeMemoryLimit(self::PDF_DECODE_LIMIT);
+        $config->setRetainImageContent(false);
 
-        return [
-            'PATH' => is_string($path) && $path !== ''
-                ? $path
-                : '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
-            'HOME' => $home,
-            'TMPDIR' => $home,
-            'LANG' => 'C.UTF-8',
-        ];
+        $text = (new PdfParser([], $config))->parseFile($sourcePath)->getText();
+        $lines = preg_split('/\R/u', $text) ?: [];
+        $paragraphs = [];
+
+        foreach ($lines as $line) {
+            $line = mb_scrub($line, 'UTF-8');
+            $line = preg_replace('/\p{C}+/u', '', $line) ?? '';
+            $line = trim(preg_replace('/[ \t]+/u', ' ', $line) ?? '');
+
+            if ($line !== '') {
+                $paragraphs[] = $line;
+            }
+        }
+
+        if ($paragraphs === []) {
+            throw new ConversionException('В PDF не найден текст. Сканы без текстового слоя не переводятся.');
+        }
+
+        return $paragraphs;
     }
 }
